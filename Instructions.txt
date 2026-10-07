@@ -1,0 +1,48 @@
+Desde la carpeta backend:
+
+Activar el entorno virtual:
+    > venv\Scripts\Activate.ps1
+
+Instalar dependencias:
+    > python -m pip install -r requirements.txt
+
+Flask corre directamente en Windows. MariaDB corre localmente; MinIO, Redis y Mailpit son servicios Docker. Configurar DATABASE_URL para la base sala-de-medios y las credenciales de MinIO/Redis en .env. El SMTP local apunta a Mailpit en localhost:2525; el buzón está en http://localhost:8026. Para publicar esos puertos, iniciar Mailpit desde la raíz del proyecto:
+    > docker compose -f compose.yml -f compose.local.yml up -d mailpit
+
+El .env de la raíz es únicamente para Docker Compose. FLASK_APP=wsgi:app en este .env permite los comandos Flask sin --app.
+
+Ejecutar migraciones:
+    > python -m flask db upgrade -d migrations
+
+Poblar datos base (unidad Comunicación y categorías; idempotente):
+    > python -m flask seed-data
+
+Crear un superadmin, misma firma que sample/backend/Instructions.txt:
+    > python -m flask create-admin nombre-de-admin mail-de-admin contraseña-de-admin true
+
+Crear un admin (sin unidad explícita queda asignado a Comunicación, igual que la firma simple de sample):
+    > python -m flask create-admin nombre-de-admin mail-de-admin contraseña-de-admin false
+
+Opcionalmente indicar otra unidad como quinto argumento:
+    > python -m flask create-admin nombre-de-admin mail-de-admin contraseña-de-admin false "Cultura"
+
+Contraseña: 12 a 256 caracteres. No se crea ningún usuario automáticamente.
+
+Inicializar el bucket privado:
+    > python -m flask init-storage
+
+Importar el catálogo y las 24 fotografías del HTML original (opcional):
+    > python -m flask import-prototype --admin-email mail-de-admin
+    Agregar --publish para publicarlos explícitamente. Sin esa opción son borradores.
+
+Iniciar backend:
+    > python wsgi.py
+
+Iniciar frontend, desde ../frontend:
+    > npm ci --legacy-peer-deps
+    > npm run dev
+
+Entrar a http://localhost:5173/admin/login.
+Vite reenvía las rutas del backend a localhost:5000; no se necesita CORS. El código 2FA se captura en Mailpit, sin enviar correo externo. El CAPTCHA numérico y el segundo factor por correo siempre son obligatorios.
+Para Docker/Coolify consultar ../README.md y ../docs/COOLIFY.md.
+En Coolify el backend también se despliega de forma independiente con su Dockerfile, como sample/backend. Usar las variables de .env.example, con DATABASE_URL/REDIS_URL/MinIO accesibles desde Docker. PUBLIC_BASE_URL y CORS_ORIGINS apuntan al frontend público. El admin abre en el dominio del backend, ruta /admin/login; CAPTCHA y 2FA conservan la misma creación de usuario por CLI.

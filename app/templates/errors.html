@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<section class="panel"><p class="eyebrow">{{ status }}</p><h1>{{ message }}</h1><a class="button" href="{{ url_for('admin.dashboard') if current_user.is_authenticated else '/' }}">Volver al inicio</a></section>{% endblock %}

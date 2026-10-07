@@ -1,0 +1,3 @@
+Tu código de acceso a la Sala de medios de Lavalleja es: {{ code }}
+Vence en {{ config.TWO_FACTOR_TTL_MINUTES }} minutos. No lo compartas.
+Si no solicitaste acceso, ignorá este mensaje.
