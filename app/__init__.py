@@ -12,7 +12,7 @@ from .config import CONFIGS
 from .cors import init_public_cors
 from .extensions import csrf, db, limiter, login_manager, mail, migrate
 from .models import User
-from .storage import MinioStorage, StorageError
+from .storage import MAX_DECODE_PIXELS, WEBP_DIMENSION_LIMIT, MinioStorage, StorageError
 
 # Default-deny: every registered endpoint outside these exact names needs a session.
 # Public photo routes additionally verify that their parent event is published.
@@ -31,6 +31,11 @@ def create_app(config_name=None, overrides=None):
     app.config["WTF_CSRF_SECRET_KEY"] = app.config.get("WTF_CSRF_SECRET_KEY") or app.config.get("SECRET_KEY")
     if not app.config.get("SECRET_KEY") or not app.config.get("SQLALCHEMY_DATABASE_URI"):
         raise RuntimeError("SECRET_KEY y DATABASE_URL son obligatorias.")
+    if (not 50 <= app.config["WEBP_QUALITY"] <= 95 or not 1 <= app.config["WEBP_MAX_HEIGHT"] <= WEBP_DIMENSION_LIMIT
+            or app.config["WEBP_MAX_BYTES"] < 1024):
+        raise RuntimeError("WebP requiere calidad 50–95, alto máximo 1–16383 px y límite de al menos 1024 bytes.")
+    if not 1 <= app.config["MAX_IMAGE_PIXELS"] <= MAX_DECODE_PIXELS:
+        raise RuntimeError(f"MAX_IMAGE_PIXELS debe estar entre 1 y {MAX_DECODE_PIXELS}.")
     if (config_name or os.getenv("FLASK_CONFIG")) == "production" and not app.testing:
         if len(app.config["SECRET_KEY"]) < 32 or app.config["RATELIMIT_STORAGE_URI"] == "memory://":
             raise RuntimeError("Producción requiere SECRET_KEY de al menos 32 caracteres y Redis.")

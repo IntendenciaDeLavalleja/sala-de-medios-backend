@@ -1,11 +1,12 @@
 from datetime import date
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db, limiter
 from ..media import photo_response, queue_photo_delete, unit_usage, upload_images
+from ..storage import validate_image
 from ..models import AuditLog, Category, Event, ObjectCleanup, Photo, Unit, User, utcnow
 from ..security import accessible_events, audit, managed_event, normalize, safe_url, slugify, superadmin_required, validate_user
 
@@ -149,6 +150,21 @@ def upload_photos(event_id):
     except ValueError as exc:
         return {"error": str(exc)}, 400
     return {"uploaded": len(photos), "redirect": url_for("admin.edit_event", event_id=event.id)}, 201
+
+
+@bp.post("/admin/events/<int:event_id>/photos/preview")
+@limiter.limit("60 per minute")
+def preview_photo(event_id):
+    """Decode browser-incompatible inputs for preview, without writing to MinIO."""
+    managed_event(event_id)
+    file = request.files.get("photo")
+    if not file or not file.filename:
+        return {"error": "Seleccioná una fotografía para previsualizar."}, 400
+    try:
+        image = validate_image(file.stream)
+    except ValueError as exc:
+        return {"error": str(exc)}, 400
+    return Response(image.preview, mimetype="image/webp")
 
 
 @bp.get("/admin/photos/<int:photo_id>/content")

@@ -32,8 +32,10 @@ def upload_images(event, files, metadata=None):
         total += len(image.data) + len(image.preview)
         if total > current_app.config["MAX_CONTENT_LENGTH"]:
             raise ValueError("La carga supera el tamaño máximo del lote.")
-        filename = (secure_filename(file.filename or "foto") or "foto")[:230]
-        alt = meta.get("alt", "").strip() or filename.rsplit(".", 1)[0].replace("_", " ")
+        source_name = (secure_filename(file.filename or "foto") or "foto")[:230]
+        stem = source_name.rsplit(".", 1)[0] or "foto"
+        filename = stem + image.extension
+        alt = meta.get("alt", "").strip() or stem.replace("_", " ")
         if len(alt) > 500 or len(meta.get("credits", "")) > 255:
             raise ValueError("El texto alternativo o los créditos son demasiado largos.")
         key = f"images/{uuid.uuid4().hex}"

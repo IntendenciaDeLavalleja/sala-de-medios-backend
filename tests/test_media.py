@@ -1,6 +1,8 @@
 import io
+import hashlib
 import zipfile
 
+from PIL import Image
 from app.extensions import db
 from app.media import cleanup_storage
 from app.models import Event, ObjectCleanup, Photo, Unit
@@ -21,14 +23,22 @@ def test_drafts_never_leak_and_unpublishing_revokes_access(authenticated):
     assert authenticated.get(f"/api/public/photos/{photo.id}/content").status_code == 404
 
 
-def test_upload_preserves_original_and_serves_minio_preview(authenticated, app):
+def test_upload_converts_to_webp_and_serves_minio_preview(authenticated, app):
     original = image_bytes()
     assert upload(authenticated, data=original).status_code == 201
     photo = Photo.query.first()
     assert photo.width == 120 and photo.height == 80 and photo.is_cover
     assert ObjectCleanup.query.count() == 0
-    assert app.extensions["media_storage"].objects[photo.object_key] == original
-    assert authenticated.get(f"/admin/photos/{photo.id}/content").data == original
+    stored = app.extensions["media_storage"].objects[photo.object_key]
+    assert stored != original
+    assert photo.object_key.endswith(".webp") and photo.filename == "foto.webp"
+    assert photo.content_type == "image/webp" and photo.size_bytes == len(stored)
+    assert photo.sha256 == hashlib.sha256(stored).hexdigest()
+    with Image.open(io.BytesIO(stored)) as image:
+        assert image.format == "WEBP" and image.size == (120, 80)
+    response = authenticated.get(f"/admin/photos/{photo.id}/content?download=1")
+    assert response.data == stored and response.content_type == "image/webp"
+    assert "foto.webp" in response.headers["Content-Disposition"]
     response = authenticated.get(f"/admin/photos/{photo.id}/content?variant=preview")
     assert response.content_type == "image/webp" and response.data[:4] == b"RIFF"
     assert response.headers["Cache-Control"] == "no-store"
@@ -79,16 +89,17 @@ def test_public_search_dates_pagination_and_zip(authenticated):
     assert authenticated.get("/api/public/stats").json == {"albums": 1, "photos": 2}
     response = authenticated.get("/api/public/events/ciclovia/download?photos=1")
     with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
-        assert archive.namelist() == ["ciclovia-001.jpg", "LEEME.txt"]
-        assert archive.read("ciclovia-001.jpg") == image_bytes()
+        assert archive.namelist() == ["ciclovia-001.webp", "LEEME.txt"]
+        assert archive.read("ciclovia-001.webp")[:4] == b"RIFF"
         assert "Créditos" in archive.read("LEEME.txt").decode()
     assert authenticated.get("/api/public/events/ciclovia/download?photos=999").status_code == 400
 
 
 def test_range_and_head(authenticated):
     upload(authenticated)
+    stored = authenticated.get("/admin/photos/1/content").data
     response = authenticated.get("/admin/photos/1/content", headers={"Range": "bytes=0-9"})
-    assert response.status_code == 206 and response.data == image_bytes()[:10]
+    assert response.status_code == 206 and response.data == stored[:10]
     assert authenticated.get("/admin/photos/1/content", headers={"Range": "bytes=999999-"}).status_code == 416
     assert authenticated.head("/admin/photos/1/content").status_code == 200
 

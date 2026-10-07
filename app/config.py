@@ -41,7 +41,10 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_UPLOAD_BYTES", str(100 * 1024**2)))
     MAX_FORM_MEMORY_SIZE = 2 * 1024**2
     MAX_IMAGE_BYTES = int(os.getenv("MAX_IMAGE_BYTES", str(25 * 1024**2)))
-    MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "40000000"))
+    MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", str(16384**2)))
+    WEBP_QUALITY = int(os.getenv("WEBP_QUALITY", "80"))
+    WEBP_MAX_HEIGHT = int(os.getenv("WEBP_MAX_HEIGHT", "1080"))
+    WEBP_MAX_BYTES = int(os.getenv("WEBP_MAX_BYTES", str(2 * 1024**2)))
     MAX_BATCH_IMAGES = 30
     MAX_ZIP_BYTES = int(os.getenv("MAX_ZIP_BYTES", str(500 * 1024**2)))
     MAX_ZIP_PHOTOS = 200
